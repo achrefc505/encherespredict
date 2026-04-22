@@ -10,11 +10,10 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { id: 'dashboard',     path: '/dashboard',      icon: '⊞', label: 'Dashboard',   exact: true  },
-  { id: 'auctions',      path: '/auctions',        icon: '⊟', label: 'Enchères',    exact: false },
-  { id: 'profitability', path: '/profitability/1', icon: '◎', label: 'Rentabilité', exact: false },
-  { id: 'landing',       path: '/landing',         icon: '◉', label: 'Landing Page',exact: true  },
-  { id: 'onboarding',    path: '/onboarding',      icon: '◈', label: 'Onboarding',  exact: true  },
+  { id: 'dashboard',  path: '/dashboard',  icon: '⊞', label: 'Dashboard',    exact: true  },
+  { id: 'auctions',   path: '/auctions',   icon: '⊟', label: 'Enchères',     exact: false },
+  { id: 'landing',    path: '/landing',    icon: '◉', label: 'Landing Page', exact: true  },
+  { id: 'onboarding', path: '/onboarding', icon: '◈', label: 'Onboarding',   exact: true  },
 ];
 
 @Component({

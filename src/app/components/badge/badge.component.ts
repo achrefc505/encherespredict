@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { BADGE_CONFIG, BadgeType } from '../../models/auction.model';
+import { BADGE_CONFIG } from '../../models/auction.model';
 
 @Component({
   selector: 'app-badge',
@@ -17,7 +17,7 @@ import { BADGE_CONFIG, BadgeType } from '../../models/auction.model';
   `
 })
 export class BadgeComponent {
-  type = input<BadgeType>('neutre');
+  type = input<string>('neutre');
 
   config() {
     return BADGE_CONFIG[this.type()] || BADGE_CONFIG['neutre'];

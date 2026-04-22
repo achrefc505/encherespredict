@@ -34,12 +34,14 @@ import { ProBadgeComponent } from '../pro-badge/pro-badge.component';
 })
 export class KpiCardComponent {
   label = input('');
-  value = input('');
+  value = input<string | number>('');
   sub = input('');
   delta = input<number | undefined>(undefined);
   icon = input('');
   color = input('');
   locked = input(false);
+  unit = input('');
+  trend = input('');
 
   abs(n: number) { return Math.abs(n); }
 }

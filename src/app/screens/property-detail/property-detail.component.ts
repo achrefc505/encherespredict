@@ -1,19 +1,36 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { MOCK_AUCTIONS, formatEur } from '../../data/mock.data';
-import { Auction } from '../../models/auction.model';
+import { formatEur } from '../../data/mock.data';
+import { AuctionDetail } from '../../models/api.models';
+import { AuctionService } from '../../services/auction.service';
 import { BadgeComponent } from '../../components/badge/badge.component';
 import { ProBadgeComponent } from '../../components/pro-badge/pro-badge.component';
 import { ConfidenceRingComponent } from '../../components/confidence-ring/confidence-ring.component';
-import { StateService } from '../../services/state.service';
+
+interface DisplayDetail extends AuctionDetail {
+  floor: string;
+  marketPricePerM2: number;
+  comparables: number;
+  aiLow: number;
+  aiHigh: number;
+  priceHistory: number[];
+}
 
 @Component({
   selector: 'app-property-detail',
   standalone: true,
   imports: [FormsModule, BadgeComponent, ProBadgeComponent, ConfidenceRingComponent],
   template: `
-    @if (auction()) {
+    @if (loading()) {
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:14px;">Chargement du bien...</div>
+    } @else if (error()) {
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#F87171;">
+        <div style="font-size:48px;opacity:0.5;">⚠</div>
+        <div style="font-size:14px;">{{ error() }}</div>
+        <button (click)="go('auctions')" class="btn-primary">Retour aux enchères</button>
+      </div>
+    } @else if (auction()) {
     <div style="padding:28px 32px;flex:1;overflow-y:auto;">
       <!-- Back -->
       <button (click)="go('auctions')" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;margin-bottom:16px;padding:0;font-family:inherit;display:flex;align-items:center;gap:6px;">
@@ -93,10 +110,9 @@ import { StateService } from '../../services/state.service';
                   <div style="font-size:11px;color:var(--text-3);margin-top:3px;">Évolution des prix au m² · {{ auction()!.city }}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:8px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.22);">
-                  <span style="font-size:10px;color:#A78BFA;font-weight:700;">✦ Modèle ML v2.1</span>
+                  <span style="font-size:10px;color:#A78BFA;font-weight:700;">✦ Modèle ML {{ auction()!.aiAnalysis?.modelVersion ?? 'v2.1' }}</span>
                 </div>
               </div>
-              <!-- SVG Market Chart -->
               <svg width="100%" [attr.viewBox]="'0 0 480 174'" style="overflow:visible;">
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -104,25 +120,18 @@ import { StateService } from '../../services/state.service';
                     <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
                   </linearGradient>
                 </defs>
-                <!-- Grid lines -->
                 @for (p of [0.25, 0.5, 0.75]; track p) {
                   <line [attr.x1]="0" [attr.y1]="gridY(p)" x2="480" [attr.y2]="gridY(p)" stroke="rgba(0,0,0,0.05)" stroke-width="1"/>
                 }
-                <!-- Area fill -->
                 <path [attr.d]="areaPath()" fill="url(#areaGrad)"/>
-                <!-- Market line -->
                 <path [attr.d]="mktPath()" fill="none" stroke="#2563EB" stroke-width="2" stroke-linejoin="round"/>
-                <!-- Dots -->
                 @for (pt of mktPoints(); track $index) {
                   <circle [attr.cx]="pt.x" [attr.cy]="pt.y" r="3.5" fill="#2563EB" stroke="var(--surface-2)" stroke-width="2"/>
                 }
-                <!-- AI estimate line -->
                 <line x1="0" [attr.y1]="aiY()" x2="480" [attr.y2]="aiY()" stroke="#10B981" stroke-width="1.5" stroke-dasharray="6,4"/>
                 <text x="476" [attr.y]="aiY() - 6" font-size="9.5" fill="#10B981" text-anchor="end" font-weight="600">Estimation IA · {{ fmtNum(aiPPM()) }} €/m²</text>
-                <!-- Start price line -->
                 <line x1="0" [attr.y1]="startY()" x2="480" [attr.y2]="startY()" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.75"/>
                 <text x="476" [attr.y]="startY() - 6" font-size="9.5" fill="#F59E0B" text-anchor="end" font-weight="600">Mise à prix · {{ fmtNum(startPPM()) }} €/m²</text>
-                <!-- X axis labels -->
                 @for (m of months; track m; let i = $index) {
                   <text [attr.x]="(i / (months.length-1)) * 480" y="168" font-size="10" fill="var(--text-3)" text-anchor="middle">{{ m }}</text>
                 }
@@ -159,6 +168,24 @@ import { StateService } from '../../services/state.service';
                 </div>
               </div>
             </div>
+
+            <!-- Strengths / Risks -->
+            @if (auction()!.aiAnalysis) {
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px;">
+                  <div style="font-size:13px;font-weight:700;color:#10B981;margin-bottom:12px;">✓ Points forts</div>
+                  @for (s of auction()!.aiAnalysis!.strengths; track s) {
+                    <div style="font-size:12px;color:var(--text-2);padding:5px 0;line-height:1.5;">• {{ s }}</div>
+                  }
+                </div>
+                <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px;">
+                  <div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:12px;">⚠ Facteurs de risque</div>
+                  @for (r of auction()!.aiAnalysis!.riskFactors; track r) {
+                    <div style="font-size:12px;color:var(--text-2);padding:5px 0;line-height:1.5;">• {{ r }}</div>
+                  }
+                </div>
+              </div>
+            }
           </div>
 
           <!-- Sidebar metrics -->
@@ -247,21 +274,25 @@ import { StateService } from '../../services/state.service';
               <div style="font-size:12px;color:var(--text-3);margin-top:3px;">{{ auction()!.documents.length }} fichiers disponibles</div>
             </div>
           </div>
-          @for (doc of auction()!.documents; track doc; let i = $index; let last = $last) {
+          @for (doc of auction()!.documents; track doc.id; let last = $last) {
             <div style="display:flex;justify-content:space-between;align-items:center;"
               [style.padding]="'13px 0'"
               [style.border-bottom]="!last ? '1px solid var(--border)' : 'none'">
               <div style="display:flex;gap:12px;align-items:center;">
                 <div style="width:38px;height:38px;background:rgba(239,68,68,0.10);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📄</div>
                 <div>
-                  <div style="font-size:13px;font-weight:600;color:var(--text-1);">{{ doc }}</div>
-                  <div style="font-size:10px;color:var(--text-3);margin-top:2px;">PDF · {{ [1.2,2.4,0.8,3.1,1.7][i % 5] }}MB</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-1);">{{ doc.name }}</div>
+                  <div style="font-size:10px;color:var(--text-3);margin-top:2px;">{{ doc.type }} · {{ doc.size }}</div>
                 </div>
               </div>
-              <button style="background:transparent;color:var(--text-2);border:1px solid var(--border);padding:5px 12px;font-size:12px;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit;">⬇ Télécharger</button>
+              <button [disabled]="!doc.available"
+                [style.opacity]="doc.available ? 1 : 0.4"
+                [style.cursor]="doc.available ? 'pointer' : 'not-allowed'"
+                style="background:transparent;color:var(--text-2);border:1px solid var(--border);padding:5px 12px;font-size:12px;border-radius:8px;font-weight:600;font-family:inherit;">
+                ⬇ Télécharger
+              </button>
             </div>
           }
-          <!-- Upload zone -->
           <div style="margin-top:20px;padding:24px;background:var(--surface-3);border-radius:10px;border:1px dashed var(--border);text-align:center;">
             <div style="font-size:28px;margin-bottom:8px;opacity:0.5;">📤</div>
             <div style="font-size:13px;font-weight:600;color:var(--text-1);margin-bottom:4px;">Analyser un nouveau document</div>
@@ -272,13 +303,6 @@ import { StateService } from '../../services/state.service';
       }
     </div>
     }
-    @else {
-      <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--text-3);">
-        <div style="font-size:48px;opacity:0.3;">⊕</div>
-        <div style="font-size:14px;">Sélectionnez un bien dans la liste</div>
-        <button (click)="go('auctions')" class="btn-primary">Voir les enchères</button>
-      </div>
-    }
   `,
   styles: [`
     .btn-primary { background:#2563EB;color:#fff;border:none;padding:8px 18px;font-size:13px;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit; }
@@ -288,9 +312,11 @@ import { StateService } from '../../services/state.service';
 export class PropertyDetailComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private state = inject(StateService);
+  private svc = inject(AuctionService);
 
-  auction = signal<Auction | null>(null);
+  auction = signal<DisplayDetail | null>(null);
+  loading = signal(true);
+  error = signal('');
   tab = signal('info');
   fees = signal(10);
   renov = signal(12000);
@@ -308,16 +334,42 @@ export class PropertyDetailComponent implements OnInit {
   ];
 
   ngOnInit() {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
+    const id = this.route.snapshot.paramMap.get('id');
     const defaultTab = this.route.snapshot.data['defaultTab'];
     if (defaultTab) this.tab.set(defaultTab);
 
-    let a = this.state.selectedAuction();
-    if (!a || a.id !== id) {
-      a = MOCK_AUCTIONS.find(x => x.id === id) || MOCK_AUCTIONS[0];
+    if (!id) {
+      this.error.set('Identifiant manquant');
+      this.loading.set(false);
+      return;
     }
-    this.auction.set(a);
-    this.salePrice.set(Math.round(a.aiEstimate * 1.06));
+
+    this.svc.getAuction(id).subscribe({
+      next: d => {
+        const ppSqm = d.aiAnalysis?.pricePerSqm ?? (d.surface ? Math.round(d.aiEstimate / d.surface) : 0);
+        const base = Math.round(ppSqm * 0.87);
+        const priceHistory = Array.from({ length: 6 }, (_, i) =>
+          Math.round(base + ((ppSqm - base) * i) / 5)
+        );
+        const display: DisplayDetail = {
+          ...d,
+          floor: 'N/A',
+          marketPricePerM2: ppSqm,
+          comparables: 15,
+          aiLow: Math.round(d.aiEstimate * 0.88),
+          aiHigh: Math.round(d.aiEstimate * 1.12),
+          priceHistory,
+        };
+        this.auction.set(display);
+        this.salePrice.set(Math.round(d.aiEstimate * 1.06));
+        this.renov.set(d.aiAnalysis?.renovationCost ?? 12000);
+        this.loading.set(false);
+      },
+      error: e => {
+        this.error.set(e.message ?? 'Impossible de charger ce bien');
+        this.loading.set(false);
+      }
+    });
   }
 
   go(path: string) { this.router.navigate([path]); }
@@ -358,8 +410,9 @@ export class PropertyDetailComponent implements OnInit {
       { k: 'Pièces',         v: String(a.rooms) },
       { k: 'Type',           v: a.type },
       { k: 'Ville',          v: a.city },
+      { k: 'Région',         v: a.region },
       { k: 'Tribunal',       v: a.tribunal },
-      { k: 'Date audience',  v: a.date ? new Date(a.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
+      { k: 'Date audience',  v: a.auctionDate ? new Date(a.auctionDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
     ];
   });
 
@@ -367,20 +420,20 @@ export class PropertyDetailComponent implements OnInit {
   private chartBounds = computed(() => {
     const a = this.auction();
     if (!a) return { mn: 0, mx: 1 };
-    const aiPPM = Math.round(a.aiEstimate / a.surface);
-    const startPPM = Math.round(a.startPrice / a.surface);
+    const aiPPM = a.surface ? Math.round(a.aiEstimate / a.surface) : 0;
+    const startPPM = a.surface ? Math.round(a.startPrice / a.surface) : 0;
     const all = [...a.priceHistory, aiPPM, startPPM];
     return { mn: Math.min(...all) * 0.96, mx: Math.max(...all) * 1.04 };
   });
 
   aiPPM = computed(() => {
     const a = this.auction();
-    return a ? Math.round(a.aiEstimate / a.surface) : 0;
+    return a && a.surface ? Math.round(a.aiEstimate / a.surface) : 0;
   });
 
   startPPM = computed(() => {
     const a = this.auction();
-    return a ? Math.round(a.startPrice / a.surface) : 0;
+    return a && a.surface ? Math.round(a.startPrice / a.surface) : 0;
   });
 
   private toY(v: number) {
@@ -413,7 +466,6 @@ export class PropertyDetailComponent implements OnInit {
     return this.toY(mn + (mx - mn) * (1 - p));
   }
 
-  // Price range bar
   private rangeSpan = computed(() => {
     const a = this.auction();
     return a ? a.aiHigh * 1.15 - a.startPrice : 1;
