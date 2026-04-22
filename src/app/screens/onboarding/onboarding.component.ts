@@ -1,7 +1,7 @@
 import { Component, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { formatEur } from '../../data/mock.data';
+import { formatEur } from '../../utils/format';
 
 interface OnboardingData {
   profile: string | null;

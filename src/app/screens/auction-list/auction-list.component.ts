@@ -1,7 +1,7 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { formatEur } from '../../data/mock.data';
+import { formatEur } from '../../utils/format';
 import { AuctionListItem } from '../../models/api.models';
 import { AuctionService } from '../../services/auction.service';
 import { BadgeComponent } from '../../components/badge/badge.component';

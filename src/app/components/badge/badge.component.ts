@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { BADGE_CONFIG } from '../../models/auction.model';
+import { BADGE_CONFIG } from '../../models/badge.config';
 
 @Component({
   selector: 'app-badge',

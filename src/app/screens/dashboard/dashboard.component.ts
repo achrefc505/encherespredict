@@ -2,10 +2,9 @@ import { Component, signal, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuctionService } from '../../services/auction.service';
 import { DashboardStats, AuctionListItem } from '../../models/api.models';
-import { StateService } from '../../services/state.service';
 import { BadgeComponent } from '../../components/badge/badge.component';
 import { KpiCardComponent } from '../../components/kpi-card/kpi-card.component';
-import { formatEur } from '../../data/mock.data';
+import { formatEur } from '../../utils/format';
 
 @Component({
   selector: 'app-dashboard',
