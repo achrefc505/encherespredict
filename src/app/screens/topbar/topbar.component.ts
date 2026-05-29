@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs/operators';
 import { StateService } from '../../services/state.service';
 import { AuctionService } from '../../services/auction.service';
+import { AuthService } from '../../services/auth.service';
 import { AlertDto } from '../../models/api.models';
 
 const LABELS: Record<string, string> = {
@@ -81,14 +82,48 @@ const LABELS: Record<string, string> = {
         </div>
 
         <div (click)="state.tweaksOpen.set(true)" style="width:30px;height:30px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:var(--text-2);" title="Tweaks">⚙</div>
+
+        <!-- User menu -->
+        @if (auth.user(); as u) {
+          <div style="position:relative;">
+            @if (u.betaDaysLeft <= 7) {
+              <span style="font-size:10px;color:#F59E0B;background:rgba(245,158,11,0.1);padding:2px 8px;border-radius:6px;border:1px solid rgba(245,158,11,0.3);">
+                Beta J-{{ u.betaDaysLeft }}
+              </span>
+            }
+            <div (click)="userMenuOpen.set(!userMenuOpen())"
+              style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface-3);border:1px solid var(--border);border-radius:8px;cursor:pointer;">
+              <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;">
+                {{ u.firstName.charAt(0).toUpperCase() }}
+              </div>
+              <span style="font-size:12px;color:var(--text-1);font-weight:600;">{{ u.firstName }}</span>
+            </div>
+
+            @if (userMenuOpen()) {
+              <div style="position:absolute;top:calc(100% + 8px);right:0;width:200px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:200;overflow:hidden;">
+                <div style="padding:12px 14px;border-bottom:1px solid var(--border);">
+                  <div style="font-size:12px;font-weight:600;color:var(--text-1);">{{ u.firstName }} {{ u.lastName }}</div>
+                  <div style="font-size:11px;color:var(--text-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ u.email }}</div>
+                  <div style="font-size:10px;color:#60A5FA;margin-top:4px;">Beta — encore {{ u.betaDaysLeft }} j</div>
+                </div>
+                <div (click)="logout()" style="padding:10px 14px;font-size:12px;color:#EF4444;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.12s;" onmouseover="this.style.background='rgba(239,68,68,0.07)'" onmouseout="this.style.background='transparent'">
+                  ⇠ Se déconnecter
+                </div>
+              </div>
+            }
+          </div>
+        }
+
       </div>
     </header>
   `
 })
 export class TopbarComponent implements OnInit {
   state = inject(StateService);
+  auth = inject(AuthService);
   private router = inject(Router);
   private svc = inject(AuctionService);
+  userMenuOpen = signal(false);
 
   alerts = signal<AlertDto[]>([]);
   alertsLoading = signal(false);
@@ -154,6 +189,11 @@ export class TopbarComponent implements OnInit {
     if (h < 24) return `il y a ${h} h`;
     const d = Math.floor(h / 24);
     return `il y a ${d} j`;
+  }
+
+  logout() {
+    this.userMenuOpen.set(false);
+    this.auth.logout();
   }
 
   screenLabel() {
