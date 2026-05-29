@@ -91,6 +91,27 @@ export interface DashboardStats {
   chartData: ChartPoint[];
 }
 
+export interface CcvOccupant { isOccupied: boolean; details: string; }
+export interface CcvCharges { montantMensuel: number | null; details: string; }
+export interface CcvFrais { montant: number | null; details: string; }
+
+export interface DocumentSummaryDto {
+  auctionId: string;
+  generatedAt: string;
+  modelVersion: string;
+  summary: {
+    occupant: CcvOccupant;
+    chargesCopro: CcvCharges;
+    procedures: string[];
+    servitudes: string[];
+    etatBien: string;
+    fraisPrealables: CcvFrais;
+    pointsVigilance: string[];
+    pointsForts: string[];
+    resumeGlobal: string;
+  };
+}
+
 export interface AlertDto {
   id: string;
   auctionId: string | null;

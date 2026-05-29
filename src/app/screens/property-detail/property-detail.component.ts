@@ -2,7 +2,7 @@ import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { formatEur } from '../../utils/format';
-import { AuctionDetail } from '../../models/api.models';
+import { AuctionDetail, DocumentSummaryDto } from '../../models/api.models';
 import { AuctionService } from '../../services/auction.service';
 import { BadgeComponent } from '../../components/badge/badge.component';
 import { ProBadgeComponent } from '../../components/pro-badge/pro-badge.component';
@@ -58,7 +58,7 @@ interface DisplayDetail extends AuctionDetail {
       <!-- Tabs -->
       <div style="display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:22px;">
         @for (t of tabs; track t.id) {
-          <button (click)="tab.set(t.id)"
+          <button (click)="selectTab(t.id)"
             [style.color]="tab() === t.id ? '#60A5FA' : 'var(--text-2)'"
             [style.font-weight]="tab() === t.id ? 600 : 400"
             [style.border-bottom]="'2px solid ' + (tab() === t.id ? '#2563EB' : 'transparent')"
@@ -301,6 +301,131 @@ interface DisplayDetail extends AuctionDetail {
           </div>
         </div>
       }
+
+      <!-- Tab: Analyse CCV IA -->
+      @if (tab() === 'analyse-ia') {
+        @if (summaryLoading()) {
+          <div style="padding:60px;text-align:center;color:var(--text-3);">
+            <div style="font-size:32px;margin-bottom:14px;opacity:0.5;">✦</div>
+            <div style="font-size:13px;">Analyse IA en cours...</div>
+          </div>
+        } @else if (summaryError()) {
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:12px;opacity:0.4;">📄</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:6px;">Résumé non disponible</div>
+            <div style="font-size:12px;color:var(--text-3);">{{ summaryError() }}</div>
+          </div>
+        } @else if (summary()) {
+          <div style="display:flex;flex-direction:column;gap:14px;">
+
+            <!-- En-tête -->
+            <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.22);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px;">
+              <div style="font-size:22px;">✦</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--text-1);">Analyse IA du Cahier des Conditions de Vente</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:2px;">{{ summary()!.modelVersion }} · {{ fmtDate(summary()!.generatedAt) }}</div>
+              </div>
+            </div>
+
+            <!-- Résumé global -->
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Résumé global</div>
+              <div style="font-size:13px;color:var(--text-1);line-height:1.7;">{{ summary()!.summary.resumeGlobal }}</div>
+            </div>
+
+            <!-- 3 badges critiques -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div [style.background]="summary()!.summary.occupant.isOccupied ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)'"
+                   [style.border]="'1px solid ' + (summary()!.summary.occupant.isOccupied ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.25)')"
+                   style="border-radius:10px;padding:14px 16px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Occupation</div>
+                <div [style.color]="summary()!.summary.occupant.isOccupied ? '#EF4444' : '#10B981'" style="font-size:15px;font-weight:800;margin-bottom:4px;">
+                  {{ summary()!.summary.occupant.isOccupied ? '⚠ Occupé' : '✓ Libre' }}
+                </div>
+                <div style="font-size:11px;color:var(--text-3);line-height:1.4;">{{ summary()!.summary.occupant.details }}</div>
+              </div>
+
+              <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Charges copro</div>
+                @if (summary()!.summary.chargesCopro.montantMensuel) {
+                  <div style="font-size:15px;font-weight:800;color:var(--text-1);margin-bottom:4px;">{{ summary()!.summary.chargesCopro.montantMensuel!.toLocaleString('fr-FR') }} €/mois</div>
+                } @else {
+                  <div style="font-size:13px;font-weight:700;color:var(--text-3);margin-bottom:4px;">Non précisé</div>
+                }
+                <div style="font-size:11px;color:var(--text-3);line-height:1.4;">{{ summary()!.summary.chargesCopro.details }}</div>
+              </div>
+
+              <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+                <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Frais préalables</div>
+                @if (summary()!.summary.fraisPrealables.montant) {
+                  <div style="font-size:15px;font-weight:800;color:#F59E0B;margin-bottom:4px;">{{ summary()!.summary.fraisPrealables.montant!.toLocaleString('fr-FR') }} €</div>
+                } @else {
+                  <div style="font-size:13px;font-weight:700;color:var(--text-3);margin-bottom:4px;">Non précisé</div>
+                }
+                <div style="font-size:11px;color:var(--text-3);line-height:1.4;">{{ summary()!.summary.fraisPrealables.details }}</div>
+              </div>
+            </div>
+
+            <!-- Vigilance / Points forts -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px;">
+                <div style="font-size:13px;font-weight:700;color:#EF4444;margin-bottom:12px;">⚠ Points de vigilance</div>
+                @for (p of summary()!.summary.pointsVigilance; track p) {
+                  <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:#EF4444;flex-shrink:0;">•</span>
+                    <span style="font-size:12px;color:var(--text-2);line-height:1.5;">{{ p }}</span>
+                  </div>
+                }
+              </div>
+              <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px;">
+                <div style="font-size:13px;font-weight:700;color:#10B981;margin-bottom:12px;">✓ Points forts</div>
+                @for (p of summary()!.summary.pointsForts; track p) {
+                  <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:#10B981;flex-shrink:0;">•</span>
+                    <span style="font-size:12px;color:var(--text-2);line-height:1.5;">{{ p }}</span>
+                  </div>
+                }
+                @if (summary()!.summary.pointsForts.length === 0) {
+                  <div style="font-size:12px;color:var(--text-3);">Aucun point fort identifié</div>
+                }
+              </div>
+            </div>
+
+            <!-- État du bien + procédures + servitudes -->
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+              <div style="font-size:13px;font-weight:700;color:var(--text-1);margin-bottom:10px;">État du bien</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.6;">{{ summary()!.summary.etatBien || 'Non précisé dans le CCV.' }}</div>
+
+              @if (summary()!.summary.procedures.length > 0) {
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                  <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:8px;">Procédures</div>
+                  @for (p of summary()!.summary.procedures; track p) {
+                    <div style="font-size:12px;color:var(--text-2);padding:3px 0;">• {{ p }}</div>
+                  }
+                </div>
+              }
+              @if (summary()!.summary.servitudes.length > 0) {
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                  <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:8px;">Servitudes</div>
+                  @for (s of summary()!.summary.servitudes; track s) {
+                    <div style="font-size:12px;color:var(--text-2);padding:3px 0;">• {{ s }}</div>
+                  }
+                </div>
+              }
+            </div>
+
+            <div style="font-size:11px;color:var(--text-3);text-align:center;">
+              Analyse IA indicative — à vérifier avec un professionnel du droit
+            </div>
+          </div>
+        } @else {
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:12px;opacity:0.4;">📄</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-1);margin-bottom:6px;">Résumé non encore généré</div>
+            <div style="font-size:12px;color:var(--text-3);">Aucun CCV disponible pour ce bien ou analyse non encore effectuée.</div>
+          </div>
+        }
+      }
     </div>
     }
   `,
@@ -326,12 +451,41 @@ export class PropertyDetailComponent implements OnInit {
   Math = Math;
   fmtNum(n: number) { return n.toLocaleString('fr-FR'); }
 
+  summary = signal<DocumentSummaryDto | null>(null);
+  summaryLoading = signal(false);
+  summaryError = signal('');
+
   tabs = [
     { id: 'info',        label: 'Informations' },
     { id: 'prediction',  label: 'Prédiction IA' },
     { id: 'rentabilite', label: 'Rentabilité', pro: true },
     { id: 'documents',   label: 'Documents' },
+    { id: 'analyse-ia',  label: '✦ Analyse CCV' },
   ];
+
+  selectTab(id: string) {
+    this.tab.set(id);
+    if (id === 'analyse-ia' && !this.summary() && !this.summaryLoading()) {
+      const a = this.auction();
+      if (a) this.loadSummary(a.id);
+    }
+  }
+
+  loadSummary(id: string) {
+    this.summaryLoading.set(true);
+    this.summaryError.set('');
+    this.svc.getSummary(id).subscribe({
+      next: s => { this.summary.set(s); this.summaryLoading.set(false); },
+      error: () => {
+        this.summaryLoading.set(false);
+        this.summaryError.set('Résumé CCV non disponible pour ce bien.');
+      }
+    });
+  }
+
+  fmtDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
