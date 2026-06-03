@@ -3,14 +3,18 @@
 ## Démarrage rapide
 
 ```bash
-# 1. Installer les dépendances
+# 1. Lancer le backend .NET dans ../encherespredict-backend/EncheresPredict.Api
+dotnet run
+
+# 2. Installer les dépendances
 npm install
 
-# 2. Lancer le serveur de développement
+# 3. Lancer le serveur de développement
 npm start
 ```
 
 L'application sera disponible sur **http://localhost:4200**
+Les appels `/api` sont proxifiés vers **https://localhost:65302**.
 
 ## Fonctionnalités
 

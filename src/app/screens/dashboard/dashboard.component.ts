@@ -35,7 +35,7 @@ import { formatEur } from '../../utils/format';
       @if (error()) {
         <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:16px 20px;margin-bottom:20px;color:#F87171;font-size:13px;">
           ⚠ Impossible de contacter l'API : {{ error() }}<br>
-          <span style="font-size:11px;opacity:0.8;">Vérifiez que le backend .NET tourne sur https://localhost:7001</span>
+          <span style="font-size:11px;opacity:0.8;">Vérifiez que le backend .NET tourne sur https://localhost:65302</span>
         </div>
       }
 
